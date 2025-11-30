@@ -1,146 +1,155 @@
-import json
+from flask import Flask, request, jsonify, render_template_string
 import hashlib
+import json
 import time
-import tkinter as tk
-from tkinter import messagebox, ttk
-from ecdsa import SigningKey, VerifyingKey, NIST256p
+import os
 
-class Wallet:
-    def __init__(self):
-        self.private = SigningKey.generate(curve=NIST256p)
-        self.public = self.private.get_verifying_key()
+app = Flask(__name__)
 
-    def sign(self, data):
-        return self.private.sign(data.encode()).hex()
-
-    def get_address(self):
-        return self.public.to_string().hex()
-
-class Block:
-    def __init__(self, index, transactions, prev_hash, nonce=0):
-        self.index = index
-        self.transactions = transactions
-        self.prev_hash = prev_hash
-        self.timestamp = time.time()
-        self.nonce = nonce
-
-    def compute_hash(self):
-        block_string = json.dumps(self.__dict__, sort_keys=True).encode()
-        return hashlib.sha256(block_string).hexdigest()
-
+# =====================================================
+#                    BLOCKCHAIN CLASS
+# =====================================================
 class Blockchain:
-    def __init__(self):
+    def __init__(self, file="parking_chain.json"):
+        self.file = file
         self.chain = []
-        self.pending = []
-        self.difficulty = 3
-        self.create_genesis()
+        self.load_chain()
 
-    def create_genesis(self):
-        g = Block(0, [], "0")
-        g.hash = g.compute_hash()
-        self.chain.append(g)
-
-    def add_transaction(self, sender, receiver, amount, signature, pubkey_hex):
-        try:
-            pub = VerifyingKey.from_string(bytes.fromhex(pubkey_hex), curve=NIST256p)
-            pub.verify(bytes.fromhex(signature), f"{sender}{receiver}{amount}".encode())
-            self.pending.append({
-                "sender": sender,
-                "receiver": receiver,
-                "amount": amount,
-                "signature": signature,
-                "pubkey": pubkey_hex
-            })
-            return True
-        except:
-            return False
-
-    def mine(self):
-        if not self.pending:
-            return None
-        last = self.chain[-1]
-        block = Block(len(self.chain), self.pending, last.compute_hash())
-        block.hash = self.proof_of_work(block)
+    def create_genesis_block(self):
+        block = {
+            "index": 0,
+            "timestamp": time.time(),
+            "data": "GENESIS BLOCK",
+            "prev_hash": "0",
+        }
+        block["hash"] = self.hash_block(block)
         self.chain.append(block)
-        self.pending = []
-        return block.hash
+        self.save_chain()
 
-    def proof_of_work(self, block):
-        block.nonce = 0
-        h = block.compute_hash()
-        while not h.startswith("0" * self.difficulty):
-            block.nonce += 1
-            h = block.compute_hash()
-        return h
-
-class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Python Blockchain Demo")
-
-        self.bc = Blockchain()
-        self.wallet = Wallet()
-
-        self.addr_lbl = tk.Label(root, text="Your Address:")
-        self.addr_lbl.pack()
-        self.addr_box = tk.Entry(root, width=80)
-        self.addr_box.insert(0, self.wallet.get_address())
-        self.addr_box.pack()
-
-        tk.Label(root, text="Send To:").pack()
-        self.send_to = tk.Entry(root, width=50)
-        self.send_to.pack()
-
-        tk.Label(root, text="Amount:").pack()
-        self.amount = tk.Entry(root, width=20)
-        self.amount.pack()
-
-        self.btn_tx = tk.Button(root, text="Create Transaction", command=self.create_tx)
-        self.btn_tx.pack(pady=5)
-
-        self.btn_mine = tk.Button(root, text="Mine Block", command=self.mine_block)
-        self.btn_mine.pack(pady=5)
-
-        tk.Label(root, text="Blockchain Explorer").pack()
-        self.tree = ttk.Treeview(root, columns=("index", "hash"), show="headings")
-        self.tree.heading("index", text="Index")
-        self.tree.heading("hash", text="Hash")
-        self.tree.pack(fill="both", expand=True)
-
-        self.refresh()
-
-    def create_tx(self):
-        receiver = self.send_to.get()
-        amount = self.amount.get()
-
-        if not receiver or not amount.isdigit():
-            messagebox.showerror("Error", "Invalid Transaction")
-            return
-
-        payload = f"{self.wallet.get_address()}{receiver}{amount}"
-        signature = self.wallet.sign(payload)
-
-        if self.bc.add_transaction(
-            self.wallet.get_address(), receiver, amount, signature, self.wallet.get_address()
-        ):
-            messagebox.showinfo("Success", "Transaction Added")
+    def load_chain(self):
+        if os.path.exists(self.file):
+            with open(self.file, "r") as f:
+                self.chain = json.load(f)
         else:
-            messagebox.showerror("Error", "Signature Failed")
+            self.create_genesis_block()
 
-    def mine_block(self):
-        h = self.bc.mine()
-        if h:
-            messagebox.showinfo("Mined", f"Block Mined:\n{h}")
-            self.refresh()
-        else:
-            messagebox.showinfo("Info", "No pending transactions")
+    def save_chain(self):
+        with open(self.file, "w") as f:
+            json.dump(self.chain, f, indent=4)
 
-    def refresh(self):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        for b in self.bc.chain:
-            self.tree.insert("", "end", values=(b.index, b.compute_hash()))
+    def hash_block(self, block):
+        block_copy = block.copy()
+        block_copy.pop("hash", None)
+        encoded = json.dumps(block_copy, sort_keys=True).encode()
+        return hashlib.sha256(encoded).hexdigest()
 
-root = tk.Tk()
-app = App(root)
-root.mainloop()
+    def add_block(self, data):
+        last = self.chain[-1]
+        block = {
+            "index": len(self.chain),
+            "timestamp": time.time(),
+            "data": data,
+            "prev_hash": last["hash"]
+        }
+        block["hash"] = self.hash_block(block)
+        self.chain.append(block)
+        self.save_chain()
+        return block
+
+    def validate_chain(self):
+        for i in range(1, len(self.chain)):
+            prev = self.chain[i - 1]
+            curr = self.chain[i]
+            if curr["prev_hash"] != prev["hash"]:
+                return False
+            if curr["hash"] != self.hash_block(curr):
+                return False
+        return True
+
+
+blockchain = Blockchain()
+
+# =====================================================
+#                 RESERVATION SYSTEM
+# =====================================================
+reservations = []  # in-memory for easy checking
+
+def slot_is_available(slot, start, end):
+    for r in reservations:
+        if r["slot"] == slot:
+            # time overlap check
+            if not (end <= r["start"] or start >= r["end"]):
+                return False
+    return True
+
+HTML = """
+<h1>Airport Parking Reservation (Blockchain Powered)</h1>
+
+<h2>Make a Reservation</h2>
+<form method="POST" action="/reserve">
+  User Name: <input name="user"><br><br>
+  Slot Number: <input name="slot" type="number"><br><br>
+  Start Time (unix timestamp): <input name="start" type="number"><br><br>
+  End Time (unix timestamp): <input name="end" type="number"><br><br>
+  <button type="submit">Reserve</button>
+</form>
+
+<h2>Blockchain</h2>
+<pre>{{ chain }}</pre>
+"""
+
+# =====================================================
+#                    ROUTES
+# =====================================================
+@app.route("/")
+def home():
+    return render_template_string(HTML, chain=json.dumps(blockchain.chain, indent=4))
+
+@app.route("/reserve", methods=["POST"])
+def reserve():
+    user = request.form.get("user")
+    slot = int(request.form.get("slot"))
+    start = int(request.form.get("start"))
+    end = int(request.form.get("end"))
+
+    if start >= end:
+        return jsonify({"error": "End time must be greater than start time"}), 400
+
+    if not slot_is_available(slot, start, end):
+        return jsonify({"error": "Slot is already booked for that time"}), 400
+
+    # Create reservation record
+    reservation_id = hashlib.sha256(f"{user}{slot}{start}{end}{time.time()}".encode()).hexdigest()
+
+    reservation = {
+        "reservation_id": reservation_id,
+        "user": user,
+        "slot": slot,
+        "start": start,
+        "end": end,
+    }
+
+    reservations.append(reservation)
+
+    # Store on blockchain
+    block = blockchain.add_block(reservation)
+
+    return jsonify({
+        "message": "Reservation successful!",
+        "reservation": reservation,
+        "block": block
+    })
+
+@app.route("/chain")
+def chain():
+    return jsonify({
+        "valid_chain": blockchain.validate_chain(),
+        "chain": blockchain.chain
+    })
+
+# =====================================================
+#                    MAIN
+# =====================================================
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
+
