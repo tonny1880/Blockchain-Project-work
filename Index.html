@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Airport Parking Reservation</title>
+
+    <!-- Bootstrap 5 -->
+    <link 
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" 
+        rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .card {
+            border-radius: 10px;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-5">
+
+    <h1 class="mb-3 fw-bold">Airport Parking Reservation</h1>
+    <p class="text-muted mb-4">
+        All reservations are immutably stored on a blockchain to ensure transparency and tamper-resistance.
+    </p>
+
+    <!-- Reservation Card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="card-title mb-3">Make a New Reservation</h4>
+
+            <form method="POST" action="/reserve">
+
+                <div class="mb-3">
+                    <label class="form-label">User Name</label>
+                    <input name="user" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Parking Slot</label>
+                    <input name="slot" type="number" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Start Time (Unix Timestamp)</label>
+                    <input name="start" type="number" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">End Time (Unix Timestamp)</label>
+                    <input name="end" type="number" class="form-control" required>
+                </div>
+
+                <button class="btn btn-primary w-100">Reserve Slot</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Blockchain Card -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-body">
+            <h4 class="card-title mb-3">Current Blockchain</h4>
+            <pre>{{ chain }}</pre>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
