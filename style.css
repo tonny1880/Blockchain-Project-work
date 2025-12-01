@@ -1,0 +1,41 @@
+body {
+    background: #f4f4f4;
+    font-family: Arial, sans-serif;
+    padding-top: 54px;
+}
+
+.container {
+    background: white;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+    margin-top: 30px;
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px #ccc;
+}
+
+input {
+    padding: 10px;
+    width: 300px;
+    font-size: 14px;
+}
+
+button {
+    padding: 10px 20px;
+    background: #333;
+    color: rgb(255, 255, 255);
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #555;
+}
+
+pre {
+    background: #111;
+    color: #0f0;
+    padding: 15px;
+    border-radius: 10px;
+    overflow-x: auto;
+}
